@@ -1,5 +1,7 @@
-body{margin:0;background:#16202c;color:#eef;font-family:system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none}
-#c{position:absolute;inset:0}
+html,body{overscroll-behavior:none;height:100%;overflow:hidden}
+body{position:fixed;inset:0;-webkit-tap-highlight-color:transparent;margin:0;background:#16202c;color:#eef;font-family:system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#c{position:absolute;inset:0;touch-action:none;overscroll-behavior:none}
+.panel,.box{overscroll-behavior:contain;touch-action:pan-y}
 .panel{position:absolute;background:#0d1520e8;border-radius:12px;padding:10px;box-shadow:0 4px 16px #0009;border:1px solid #ffffff14}
 #top{top:8px;left:8px;right:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 #side{right:8px;top:70px;width:290px;max-height:calc(100% - 100px);overflow:auto}

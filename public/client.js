@@ -1,5 +1,6 @@
 (() => {
 'use strict';
+window.addEventListener('error', e => { try { const t = document.getElementById('toast'); t.textContent = 'Error: ' + (e.message || e); t.classList.remove('hidden'); } catch (x) {} });
 const $ = id => document.getElementById(id), cv = $('c'), ctx = cv.getContext('2d'), G = window.Game, A = window.Art, S = A.sfx;
 let st = null, online = null, me = 0, sel = null, selTile = null, cam = { x: 0, y: 0, z: 1 }, lastHuman = -1, aiTimer = null, deadline = 0, clockSkew = 0, localTimer = 0;
 const TW = 64, TH = 32, esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
@@ -54,44 +55,51 @@ window.A_ = a => { hideModal(); act(a); };
 
 // ---------- save / load ----------
 function autosave() { if (online || !st) return; try { localStorage.setItem('pg_autosave', JSON.stringify(st)); } catch (e) {} }
-function listSaves() { const out = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('pg_save_') || k === 'pg_autosave') out.push(k); } return out.sort(); }
+function listSaves() { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('pg_save_') || k === 'pg_autosave') out.push(k); } } catch (e) {} return out.sort(); }
 function renderSaves() { const s = listSaves(); $('saves').innerHTML = s.length ? 'Saved games: ' + s.map(k => `<button onclick="loadSave('${k}')">${k === 'pg_autosave' ? 'Continue (autosave)' : esc(k.slice(8))}</button><button onclick="delSave('${k}')" title="delete">✕</button>`).join('') : ''; }
-window.loadSave = k => { try { startLoaded(JSON.parse(localStorage.getItem(k))); } catch (e) { toast('Corrupt save'); } };
+window.loadSave = k => { try { startLoaded(JSON.parse(localStorage.getItem(k))); } catch (e) { try { localStorage.removeItem(k); } catch (x) {} st = null; $('menu').classList.remove('hidden'); renderSaves(); toast('That save was corrupt and has been removed'); } };
 window.delSave = k => { localStorage.removeItem(k); renderSaves(); };
-function startLoaded(s) { if (!s || !s.tiles || !s.players) return toast('Not a Polygame save'); online = null; st = null; prevUnits = {}; ingest(s); lastHuman = -1; showGame(); afterLocal(true); }
-$('loadFile').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { startLoaded(JSON.parse(t)); } catch (er) { toast('Invalid file'); } }); };
+function startLoaded(s) { if (!s || !Array.isArray(s.tiles) || !Array.isArray(s.players) || !s.units || !s.cities || s.fogged != null) throw new Error('Not a Polygame save'); online = null; st = null; prevUnits = {}; ingest(s); lastHuman = -1; showGame(); afterLocal(true); }
+$('loadFile').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { startLoaded(JSON.parse(t)); } catch (er) { st = null; $('menu').classList.remove('hidden'); toast('Invalid save file'); } }); };
 $('btnSave').onclick = () => {
   if (online) return toast('Online games are saved on the server automatically', 1);
   const name = 'T' + st.turn + ' ' + new Date().toLocaleString().replace(/[/:,]/g, '-'); localStorage.setItem('pg_save_' + name, JSON.stringify(st));
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(st)], { type: 'application/json' })); a.download = 'polygame-' + name.replace(/ /g, '_') + '.json'; a.click(); toast('Game saved', 1);
 };
-renderSaves();
+try { renderSaves(); } catch (e) { $('saves').innerHTML = ''; }
 
 // ---------- start ----------
 function showGame() { $('menu').classList.add('hidden'); ['top', 'side', 'logp'].forEach(i => $(i).classList.remove('hidden')); centerOnCapital(); }
-$('btnLocal').onclick = () => {
+$('btnLocal').onclick = () => { wantOnline = false; if (online) { try { online.close(); } catch (e) {} online = null; }
   const h = +$('lh').value, a = +$('la').value, t = +$('lt').value; if (h + a < 2) return toast('Need at least 2 tribes');
   const players = []; for (let i = 0; i < h + a; i++) { const tr = (t + i) % G.TRIBES.length; players.push({ type: i < h ? 'human' : 'ai', tribe: tr, difficulty: $('ld').value, name: i < h && h > 1 ? 'P' + (i + 1) + ' ' + G.TRIBES[tr].name : null }); }
   st = null; prevUnits = {}; ingest(G.newGame({ players, mode: $('lm').value, size: +$('ls').value || undefined, turnSeconds: +$('lti').value })); online = null; lastHuman = -1;
   showGame(); afterLocal(true);
 };
-let reconnectTries = 0;
+let reconnectTries = 0, wantOnline = false, reconnectT = null;
+function wsURL() { return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'; }
 function connect(first) {
-  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  wantOnline = true; clearTimeout(reconnectT);
+  let ws; try { ws = new WebSocket(wsURL()); } catch (e) { toast('Cannot open connection'); return scheduleReconnect(); }
   ws.onopen = () => { reconnectTries = 0; ws.send(JSON.stringify(first)); };
-  ws.onmessage = e => { const m = JSON.parse(e.data);
-    if (m.type === 'error') { toast(m.err); if (m.kicked) ws.kicked = true; }
+  ws.onerror = () => {};
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } try {
+    if (m.type === 'ping') return;
+    if (m.type === 'error') { toast(m.err); if (m.kicked) { ws.kicked = true; wantOnline = false; } if (/not found|already started|full/i.test(m.err) && !st) { wantOnline = false; sessionStorage.removeItem('pg_room'); } }
     else if (m.type === 'toast') { toast('Found ' + m.msg, 1); S.coin(); }
     else if (m.type === 'token') { sessionStorage.setItem('pg_room', JSON.stringify({ code: m.code, token: m.token })); }
     else if (m.type === 'chat') logLine(`<b>${esc(m.from)}:</b> ${esc(m.text)}`);
-    else if (m.type === 'lobby') { me = m.you; sessionStorage.setItem('pg_room', JSON.stringify({ code: m.code, token: m.token })); history.replaceState(null, '', '?room=' + m.code);
+    else if (m.type === 'lobby') { me = m.you; online = ws; sessionStorage.setItem('pg_room', JSON.stringify({ code: m.code, token: m.token })); try { history.replaceState(null, '', '?room=' + m.code); } catch (x) {}
       $('lobby').innerHTML = `<h3>Room code: <span style="font-size:28px;letter-spacing:3px">${esc(m.code)}</span></h3>Share link: <input readonly value="${esc(location.origin + '/?room=' + m.code)}" size="34" onclick="this.select()"><br>Players: ${m.slots.map(s => esc(s.name)).join(', ')} + ${m.opts.ai} AI (${m.opts.difficulty}) · ${m.opts.mode} · timer ${m.opts.timer ? m.opts.timer + 's' : 'off'}<br>` + (m.you === 0 ? '<button id="btnStart" class="big">Start game</button>' : 'Waiting for host to start...');
       if ($('btnStart')) $('btnStart').onclick = () => ws.send(JSON.stringify({ type: 'start' })); }
-    else if (m.type === 'state') { const firstS = !st || !online; me = m.you; online = ws; clockSkew = Date.now() - m.now; deadline = m.deadline ? m.deadline + clockSkew : 0; ingest(m.state); if (firstS) showGame(); if (sel && !st.units[sel]) sel = null; refresh(); }
-  };
-  ws.onclose = () => { if (!ws.kicked && (online === ws || !st)) { toast('Disconnected, reconnecting...'); const saved = JSON.parse(sessionStorage.getItem('pg_room') || 'null'); if (saved && reconnectTries++ < 10) setTimeout(() => connect({ type: 'join', code: saved.code, token: saved.token, name: $('oname').value }), 1500); } };
+    else if (m.type === 'state') { const firstS = !st || online !== ws; me = m.you; online = ws; clockSkew = Date.now() - m.now; deadline = m.deadline ? m.deadline + clockSkew : 0; ingest(m.state); if (firstS) showGame(); if (sel && !st.units[sel]) sel = null; refresh(); }
+  } catch (err) { console.error(err); toast('Display error: ' + err.message); } };
+  ws.onclose = () => { if (ws.kicked || !wantOnline) return; if (online && online !== ws) return; toast('Connection lost, reconnecting...'); scheduleReconnect(); };
 }
-$('oname').value = localStorage.getItem('pg_name') || 'Player';
+function scheduleReconnect() { if (!wantOnline) return; const saved = JSON.parse(sessionStorage.getItem('pg_room') || 'null'); if (!saved) return;
+  const delay = Math.min(30000, 1000 * Math.pow(2, reconnectTries++)); clearTimeout(reconnectT); reconnectT = setTimeout(() => connect({ type: 'join', code: saved.code, token: saved.token, name: $('oname').value }), delay); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && wantOnline && (!online || online.readyState > 1)) { reconnectTries = 0; scheduleReconnect(); } });
+try { $('oname').value = localStorage.getItem('pg_name') || 'Player'; } catch (e) {}
 $('btnCreate').onclick = () => { localStorage.setItem('pg_name', $('oname').value); connect({ type: 'create', name: $('oname').value, ai: +$('oa').value, mode: $('om').value, difficulty: $('od').value, timer: +$('oti').value }); };
 $('btnJoin').onclick = () => { localStorage.setItem('pg_name', $('oname').value); const saved = JSON.parse(sessionStorage.getItem('pg_room') || 'null'), code = $('ocode').value.trim().toUpperCase(); connect({ type: 'join', name: $('oname').value, code, token: saved && saved.code === code ? saved.token : undefined }); };
 const qRoom = new URLSearchParams(location.search).get('room'); if (qRoom) $('ocode').value = qRoom;
@@ -241,6 +249,6 @@ function click(p) {
 addEventListener('keydown', e => { if (e.key === 'Escape') { sel = null; hideModal(); } if (e.key === 'Enter' && e.ctrlKey) $('btnEnd').click(); });
 resize();
 // auto-reconnect to an online game after reload
-const saved = JSON.parse(sessionStorage.getItem('pg_room') || 'null'); if (saved && qRoom && saved.code === qRoom) connect({ type: 'join', code: saved.code, token: saved.token, name: $('oname').value });
+let saved = null; try { saved = JSON.parse(sessionStorage.getItem('pg_room') || 'null'); } catch (e) { sessionStorage.removeItem('pg_room'); } if (saved && qRoom && saved.code === qRoom) connect({ type: 'join', code: saved.code, token: saved.token, name: $('oname').value });
 window.__pg = { get st() { return st; }, act, cam };
 })();

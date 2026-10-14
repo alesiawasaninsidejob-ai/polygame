@@ -13,11 +13,15 @@ const server = http.createServer((req, res) => {
   if (p === '/') p = '/index.html';
   const f = path.join(PUB, path.normalize(p));
   if (!f.startsWith(PUB + path.sep)) { res.writeHead(403); return res.end(); }
-  fs.readFile(f, (e, d) => { if (e) { res.writeHead(404); return res.end('not found'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache',
-      'Content-Security-Policy': "default-src 'self'; connect-src 'self' ws: wss:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:" }); res.end(d); });
+  fs.readFile(f, (e, d) => { if (e) { res.writeHead(404); return res.end('not found'); } if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'Referrer-Policy': 'same-origin', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache',
+      'Content-Security-Policy': "default-src 'self'; connect-src 'self' wss: ws:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:" }); res.end(d); });
 });
-const wss = new WebSocketServer({ server, maxPayload: MAX_MSG });
+const wss = new WebSocketServer({ server, maxPayload: MAX_MSG }); // same HTTP server handles the Upgrade (works behind Render/HTTPS proxies; any path, e.g. /ws)
+const clientIP = req => String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
+const perIP = new Map(), MAX_PER_IP = 20;
+// heartbeat: keep connections alive through proxies with idle timeouts and drop dead ones
+setInterval(() => wss.clients.forEach(ws => { if (ws.isAlive === false) return ws.terminate(); ws.isAlive = false; try { ws.ping(); } catch (e) {} }), 25000).unref();
 let rooms = {};
 // ---- persistence ----
 let saveT = null;
@@ -40,6 +44,8 @@ function armTimer(r) { clearTimeout(r.timer); r.deadline = 0; const sec = r.opts
     G.apply(r.state, cur, { type: 'endTurn' }); runAI(r); armTimer(r); broadcast(r); }, sec * 1000 + 50); }
 function after(r) { runAI(r); armTimer(r); broadcast(r); }
 wss.on('connection', (ws, req) => {
+  const ip = clientIP(req); const n = (perIP.get(ip) || 0) + 1; if (n > MAX_PER_IP) { ws.close(1013, 'Too many connections'); return; } perIP.set(ip, n);
+  ws.isAlive = true; ws.on('pong', () => { ws.isAlive = true; }); ws.on('close', () => { const k = (perIP.get(ip) || 1) - 1; k ? perIP.set(ip, k) : perIP.delete(ip); });
   let room = null, hits = [];
   ws.on('error', () => { try { ws.terminate(); } catch (e) {} });
   const me = () => room ? room.slots.findIndex(s => s.ws === ws) : -1;
