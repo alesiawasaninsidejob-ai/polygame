@@ -1,0 +1,20 @@
+body{margin:0;background:#16202c;color:#eef;font-family:system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#c{position:absolute;inset:0}
+.panel{position:absolute;background:#0d1520e8;border-radius:12px;padding:10px;box-shadow:0 4px 16px #0009;border:1px solid #ffffff14}
+#top{top:8px;left:8px;right:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#side{right:8px;top:70px;width:290px;max-height:calc(100% - 100px);overflow:auto}
+#logp{left:8px;bottom:8px;width:340px;max-height:140px;overflow:auto;font-size:12px}
+button,.filebtn{background:linear-gradient(#3b7cf0,#2a5fc4);color:#fff;border:0;border-radius:8px;padding:7px 11px;margin:2px;cursor:pointer;font-size:14px;display:inline-block}
+button:hover{filter:brightness(1.15)} button:disabled{background:#3a4652;color:#8899;cursor:default;filter:none}
+button.end{background:linear-gradient(#f0a030,#c47010);font-weight:bold} button.big{font-size:17px;padding:10px 18px}
+.modal{position:absolute;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:5}
+.box{background:linear-gradient(#1b2a3e,#121c2a);padding:20px;border-radius:14px;max-width:min(940px,94vw);max-height:90%;overflow:auto;box-shadow:0 8px 40px #000}
+.logo{font-size:44px;letter-spacing:6px;margin:0;background:linear-gradient(90deg,#8cc85a,#f0c040,#e05a4a);-webkit-background-clip:text;color:transparent}
+.sect{background:#ffffff0a;border-radius:10px;padding:8px 12px;margin:10px 0}
+.tech{display:inline-block;width:150px;margin:3px;padding:6px;border-radius:8px;background:#233;font-size:12px;vertical-align:top}
+.tech.have{background:#2a6a3a}.tech.can{background:#2d4f8a;cursor:pointer}.tech.can:hover{background:#3d63aa}
+input,select{padding:6px;margin:3px;border-radius:6px;border:0;background:#e8eef6;font-size:14px}
+.hidden{display:none!important} .small{font-size:13px;max-width:700px} .stat{white-space:nowrap}
+#toast{position:absolute;top:76px;left:50%;transform:translateX(-50%);background:#a33;padding:8px 14px;border-radius:8px;z-index:9;pointer-events:none}
+.row{display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap}
+@media (max-width:760px){#side{left:8px;right:8px;width:auto;top:auto;bottom:8px;max-height:38%}#logp{display:none}#top{font-size:13px;gap:6px}#top button{padding:6px 8px;font-size:13px}}

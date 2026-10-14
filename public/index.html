@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Polygame: Tribes of the Square World</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#16202c"><link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="style.css?v=3"></head><body>
+<canvas id="c"></canvas>
+<div id="top" class="panel hidden"><b id="who"></b><span class="stat">⭐ <b id="stars"></b> <small>(+<span id="inc"></span>)</small></span><span class="stat">Turn <b id="turn"></b></span><span id="timer" class="stat"></span><span id="score" class="stat"></span>
+<span style="flex:1"></span><button id="btnTech">Tech</button><button id="btnDip">Diplomacy</button><button id="btnSave">Save</button><button id="btnSnd" title="Sound effects">🔊</button><button id="btnMus" title="Music">🎵</button><button id="btnEnd" class="end">End turn</button><button id="btnMenu">☰</button></div>
+<div id="side" class="panel hidden"></div>
+<div id="logp" class="panel hidden"></div>
+<div id="toast" class="hidden"></div>
+<div id="menu" class="modal"><div class="box">
+<h1 class="logo">POLYGAME</h1><p>Turn-based tribal strategy on a square world.</p>
+<div class="sect"><h3>Local game: vs AI or hot-seat</h3>
+Humans <select id="lh"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+AI <select id="la"><option>0</option><option selected>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+AI level <select id="ld"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="crazy">Crazy</option></select>
+Mode <select id="lm"><option value="domination">Domination</option><option value="score">Perfection (30 turns)</option></select>
+Map <select id="ls"><option value="0">Auto</option><option value="11">Tiny</option><option value="14">Small</option><option value="16">Normal</option><option value="20">Large</option></select>
+Turn timer <select id="lti"><option value="0">Off</option><option value="30">30s</option><option value="60">60s</option><option value="120">2m</option></select>
+<br>Your tribe <select id="lt"></select>
+<button id="btnLocal" class="big">Start local game</button>
+<div id="saves"></div><label class="filebtn">Load save file<input type="file" id="loadFile" accept=".json" hidden></label></div>
+<div class="sect"><h3>Online multiplayer</h3>
+Name <input id="oname" value="Player" maxlength="20"><br>
+AI <select id="oa"><option>0</option><option>1</option><option>2</option><option>3</option></select>
+AI level <select id="od"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="crazy">Crazy</option></select>
+Mode <select id="om"><option value="domination">Domination</option><option value="score">Perfection</option></select>
+Timer <select id="oti"><option value="0">Off</option><option value="60" selected>60s</option><option value="120">2m</option><option value="300">5m</option></select>
+<button id="btnCreate">Create room</button>
+<br>Code <input id="ocode" size="6" maxlength="8"><button id="btnJoin">Join room</button>
+<div id="lobby"></div></div>
+<details><summary>How to play</summary><p class="small">You earn stars from your cities every turn. Spend them on technology, on harvesting resources and building (which grows city population), and on training units. To take a village or enemy city, move a unit onto it, then use <i>Capture</i> on your next turn. When a city's population fills, it levels up and you pick a reward. Ships come from ports and can be upgraded. Make peace through the Diplomacy panel. <b>Domination</b>: be the last tribe standing. <b>Perfection</b>: have the highest score after 30 turns. Desktop: drag to pan and use the wheel to zoom. Mobile: drag, and pinch to zoom.</p></details>
+</div></div>
+<div id="modal" class="modal hidden"><div class="box" id="mbox"></div></div>
+<script src="game.js?v=3"></script><script src="art.js?v=3"></script><script src="client.js?v=3"></script>
+</body></html>
